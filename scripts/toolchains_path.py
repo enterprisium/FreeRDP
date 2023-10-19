@@ -18,12 +18,12 @@ def get_host_tag_or_die():
         return 'linux-x86_64'
     elif sys.platform == 'darwin':
         return 'darwin-x86_64'
-    elif sys.platform == 'win32' or sys.platform == 'cygwin':
+    elif sys.platform in ['win32', 'cygwin']:
         host_tag = 'windows-x86_64'
         if not os.path.exists(os.path.join(NDK_DIR, 'prebuilt', host_tag)):
             host_tag = 'windows'
         return host_tag
-    sys.exit('Unsupported platform: ' + sys.platform)
+    sys.exit(f'Unsupported platform: {sys.platform}')
 
 
 def get_toolchain_path_or_die(ndk, host_tag):
@@ -31,7 +31,7 @@ def get_toolchain_path_or_die(ndk, host_tag):
     toolchain_path = os.path.join(ndk, 'toolchains/llvm/prebuilt',
                                   host_tag, 'bin')
     if not os.path.exists(toolchain_path):
-        sys.exit('Could not find toolchain: {}'.format(toolchain_path))
+        sys.exit(f'Could not find toolchain: {toolchain_path}')
     return toolchain_path
 
 def main():

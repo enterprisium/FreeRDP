@@ -37,10 +37,7 @@ def parse_html(text):
             entry = []
             for th in tr:
                 if type(th) == element.Tag:
-                    if th.string:
-                        entry += [th.string]
-                    else:
-                        entry += ['']
+                    entry += [th.string] if th.string else ['']
             languages += [entry]
     return [headers, languages]
 
@@ -53,16 +50,16 @@ def is_base(num, base):
 
 def padhexa(v):
     s = hex(v)
-    return '0x' + s[2:].zfill(8)
+    return f'0x{s[2:].zfill(8)}'
 
 def write_struct(fp, struct, name, url, base, inv = False, typemap = None):
     li = requests.get(url)
     if li.status_code != requests.codes.ok:
-        print('Could not fetch ' + str(url) + ', reponse code ' + str(li.status_code))
+        print(f'Could not fetch {str(url)}, reponse code {li.status_code}')
         sys.exit(1)
     headers, languages = parse_html(li.text)
 
-    fp.write('const ' + str(struct) + ' ' + str(name) + '[] =\n')
+    fp.write(f'const {str(struct)} {str(name)}' + '[] =\n')
     fp.write('{\n')
     fp.write('/* ')
     for h in headers:
@@ -89,19 +86,19 @@ def write_struct(fp, struct, name, url, base, inv = False, typemap = None):
                 if h != "None":
                   last[pos] = h
                 if inv:
-                  line = h + ', ' + line
+                    line = f'{h}, {line}'
                 else:
-                  line += h + ', '
+                    line += f'{h}, '
             except ValueError:
                 if typemap and typemap[pos] != str:
                     line += str(last[pos]) + ',\t'
+                elif e == "":
+                    line += f'"{str(last[pos])}' + '",\t'
+                elif e == "None":
+                    line += f'"{e}' + '",\t'
                 else:
-                    if e == "":
-                      line += '"' + str(last[pos]) + '",\t'
-                    else:
-                      line += '"' + e + '",\t'
-                      if e != "None":
-                        last[pos] = str(e)
+                    line += f'"{e}' + '",\t'
+                    last[pos] = str(e)
             pos = pos + 1
         fp.write(line[:-2] + '},\n')
     fp.write('};\n')

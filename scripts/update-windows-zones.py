@@ -23,7 +23,7 @@ try:
 
         with open(zfile, 'w') as f:
             f.write('/*\n')
-            f.write(' * Automatically generated with ' + str(rname) + '\n')
+            f.write(f' * Automatically generated with {str(rname)}' + '\n')
             f.write(' */\n')
             f.write('\n')
             f.write('#include "WindowsZones.h"\n')
@@ -37,5 +37,5 @@ try:
             f.write('const size_t WindowsTimeZoneIdTableNrElements = ARRAYSIZE(WindowsTimeZoneIdTable);\n')
 except Exception as e:
     print('----------------------------------------------------')
-    print(str(e))
+    print(e)
     print('----------------------------------------------------')

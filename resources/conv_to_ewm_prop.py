@@ -44,16 +44,14 @@ def main(argv):
 	fp.write("static unsigned long %s_prop [] = {\n" % var_name)
 	fp.write(" %d, %d\n" % im.size)
 
-	i = 0
-	for pixel in im.getdata():
+	for i, pixel in enumerate(im.getdata(), start=1):
 		r,g,b,a = pixel
-		pixel = b 
+		pixel = b
 		pixel |= g << 8
 		pixel |= r << 16
 		pixel |= a << 24
 		fp.write(" , %du" % pixel)
 
-		i += 1
 		if i % 8 == 0:
 			fp.write("\n")
 

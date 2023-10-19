@@ -166,39 +166,39 @@ class ApplicationPIV(object):
         ret = ''
         appTag = body[0]
         appLen = body[1]
-    
+
         body = body[2:2+appLen]
         while len(body) > 2:
-            tag = body[0]
             tagLen = body[1]
             if selectT == "FCI":
-                if tag == 0x4f:
-                    ret += "\tpiv version: %s\n" % body[2:2 + tagLen].hex()
-                elif tag == 0x79:
+                tag = body[0]
+                if tag == 0x79:
                     subBody = body[2:2 + tagLen]                                
-                    
+
                     subTag = subBody[0]
                     subLen = subBody[1]
-                    
+
                     content = subBody.hex()
                     if subTag == 0x4f:
                         v = content[4:]
                         if v.startswith('a000000308'):
-                            content = 'NIST RID'                                                                        
+                            content = 'NIST RID'
                     ret += '\tCoexistent tag allocation authority: %s\n' % content                                
-                    
+
+                elif tag == 0xAC:
+                    ret += '\tCryptographic algorithms supported\n'
+                elif tag == 0x4F:
+                    ret += "\tpiv version: %s\n" % body[2:2 + tagLen].hex()
                 elif tag == 0x50:
                     ret += '\tapplication label\n'
-                elif tag == 0xac:
-                    ret += '\tCryptographic algorithms supported\n'
                 else:
                     rety += '\tunknown tag 0x%x\n' % tag
-                    
+
             else:
                 ret += "\tTODO: selectType %s\n" % selectT
-            
+
             body = body[2+tagLen:]
-            
+
         return ret
     
     def getData(self, fileId, bytes):
@@ -208,22 +208,22 @@ class ApplicationPIV(object):
         tag = bytes[5]
         tagLen = bytes[6]
 
-        if lc == 4:
-            ret += "\tdoId=%0.4x\n"% (bytes[7] * 256 + bytes[8])
-            
-        elif lc == 0xa:
-            keyStr = ''
+        if lc == 0xA:
             # TLV
             i = 7
             tag = bytes[i]
             tagLen = bytes[i+1]
             keyRef = bytes[i+3]
+            keyStr = ''
             keyStr = "key(tag=0x%x len=%d ref=0x%x)=" % (tag, tagLen, keyRef)
             i = i + 2 + tagLen 
-            
+
             tag = bytes[i]
             tagLen = bytes[i+1]
             keyStr += "value(tag=0x%x len=%d)"
+        elif lc == 4:
+            ret += "\tdoId=%0.4x\n"% (bytes[7] * 256 + bytes[8])
+
         elif lc == 5:
             if tag == 0x5C:
                 tagStr = bytes[7:].hex()
@@ -385,7 +385,7 @@ class ApplicationGids(object):
 
         if tag == 0x5c:
             doStr = bytes[7:7+tagLen].hex()
-            ret = '\tDO=%s\n' % DOs.get(doStr, "<%s>" % doStr)
+            ret = '\tDO=%s\n' % DOs.get(doStr, f"<{doStr}>")
             self.lastDo = doStr
         else:
             ret = '\tunknown tag=0%x len=%d v=%s' % (tag, tagLen, bytes[7:7+tagLen].hex())
@@ -393,7 +393,6 @@ class ApplicationGids(object):
         return ret
     
     def getDataResult(self, status, body):
-        ret = ''
         '''
         while len(body) > 2:
             tag = body[0]
@@ -403,7 +402,7 @@ class ApplicationGids(object):
             
             body = body[2+tagLen:]
         '''
-        return ret
+        return ''
     
     def mse(self, body):
         return body.hex()
@@ -430,41 +429,37 @@ def createAppByAid(aid):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        fin = open(sys.argv[1], "r")
-    else:
-        fin = sys.stdin
-    
+    fin = open(sys.argv[1], "r") if len(sys.argv) > 1 else sys.stdin
     lineno = 0
     lastCmd = 0
     lastSelect = None
     lastSelectFCI = False
     lastGetItem = None
     currentApp = None
-    
+
     for l in fin.readlines():
         lineno += 1
-        
+
         if not len(l):
             continue
-        
+
         # smartcard loggers have changed
         #if l.find("[DEBUG][com.freerdp.channels.smartcard.client]") == -1:
         #    continue
 
         body = ''
         recvKey = 'pbRecvBuffer: { '
-        
+
         pos = l.find(recvKey)
         if pos != -1:
             toCard = False
-            
+
             pos += len(recvKey)
             pos2 = l.find(' }', pos)
             if pos2 == -1:
                 print("line %d: invalid recvBuffer")
                 continue
-                        
+
         else:
             toCard = True
             sendKey = 'pbSendBuffer: { '
@@ -472,34 +467,34 @@ if __name__ == '__main__':
             if pos == -1:
                 continue
             pos += len(sendKey)
-            
+
             pos2 = l.find(' }', pos)
             if pos2 == -1:
                 print("line %d: invalid sendBuffer")
                 continue
 
         body = l[pos:pos2]
-        
-        print(l[0:-1])
+
+        print(l[:-1])
         bytes = codecs.decode(body, 'hex')
         if toCard:
-            (cla, ins, p1, p2) = bytes[0:4]            
+            (cla, ins, p1, p2) = bytes[:4]
             cmdName = CMD_NAMES.get(ins, "<COMMAND 0x%x>" % ins)
-            print(cmdName + ":")
-            
+            print(f"{cmdName}:")
+
             if cmdName == "SELECT":
                 lc = bytes[4]
                 i = 5
-                
+
                 if p1 == 0x00:
                     print("\tselectByFID: %0.2x%0.2x" % (bytes[i], bytes[i+1]))
-                    i = i + lc
-                     
+                    i += lc
+
                 elif p1 == 0x4:                    
                     aid = bytes[i:i+lc].hex()
                     lastSelect = AIDs.get(aid, '')
                     print("\tselectByAID: %s(%s)" % (aid, lastSelect))
-                                        
+
                     if p2 == 0x00:
                         lastSelectT = "FCI"
                         print('\tFCI')
@@ -509,11 +504,11 @@ if __name__ == '__main__':
                     elif p2 == 0x08:
                         print('\tFMD')
                         lastSelectT = "FMD"
-                        
+
                     if not currentApp or currentApp.getAID() != aid:
                         currentApp = createAppByAid(aid)
-                
-                    
+
+
             elif cmdName == "VERIFY":
                 lc = bytes[4]
                 P2_DATA_QUALIFIER = {
@@ -523,50 +518,50 @@ if __name__ == '__main__':
                     0x81: "Application resetting password",
                     0x82: "Application security status resetting code",
                 }
-                
+
                 pin=''
                 if lc:
                     pin = ", pin='" + bytes[5:5+lc-2].decode('utf8)') + "'"
-                
+
                 print("\t%s%s" % (P2_DATA_QUALIFIER.get(p2, "<unknown>"), pin))
 
             elif cmdName == "GET DATA":
                 lc = bytes[4]
                 fileId = p1 * 256 + p2
-                
+
                 ret = currentApp.getData(fileId, bytes)
-                print("%s" % ret)
-                
+                print(f"{ret}")
+
             elif cmdName == "MSE":
                 ret = currentApp.mse(bytes[5:5+lc])
-                print("%s" % ret)
-                
+                print(f"{ret}")
+
             elif cmdName == "PSO":
                 ret = currentApp.pso(bytes[5:5+lc])
-                print("%s" % ret)
+                print(f"{ret}")
             else:
-                print('handle %s' % cmdName)    
+                print(f'handle {cmdName}')    
 
             lastCmd = cmdName
-            
+
         else:
             # Responses
             status = bytes[-1] + bytes[-2] * 256
-            body = bytes[0:-2]
+            body = bytes[:-2]
             print("status=0x%0.4x(%s)" %  (status, ERROR_CODES.get(status, "<unknown>")))
 
             if not len(body):
                 continue
-            
+
             ret = ''
-            if lastCmd == "SELECT":                
-                ret = currentApp.selectResult(lastSelectT, status, body)
-            elif lastCmd == "GET DATA":
-                ret = currentApp.getDataResult(status, body)                
+            if lastCmd == "GET DATA":
+                ret = currentApp.getDataResult(status, body)
             elif lastCmd == "MSE":
                 ret = currentApp.mseResult(status, body)
             elif lastCmd == "PSO":
                 ret = currentApp.psoResult(status, body)
-            
+
+            elif lastCmd == "SELECT":
+                ret = currentApp.selectResult(lastSelectT, status, body)
             if ret:
-                print("%s" % ret)
+                print(f"{ret}")
